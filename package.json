@@ -1,0 +1,31 @@
+{
+  "name": "moodbot",
+  "version": "1.0.0",
+  "description": "A Slackbot for Team Mood",
+  "main": "index.js",
+  "directories": {
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "env $(cat .env) nodemon -e js,html --inspect src/index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git@github.schibsted.io:spt-privacy/moodbot.git"
+  },
+  "keywords": [
+    "Slackbot"
+  ],
+  "author": "Lei Zhong",
+  "license": "ISC",
+  "dependencies": {
+    "@slack/client": "^3.10.0",
+    "dotenv": "^4.0.0",
+    "promise": "^8.0.0",
+    "string-table": "^0.1.5"
+  },
+  "devDependencies": {
+    "nodemon": "^1.11.0"
+  }
+}
