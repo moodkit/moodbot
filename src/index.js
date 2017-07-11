@@ -37,31 +37,29 @@ function validate(emoji, value) {
     return true;
 }
 
-function getUserId(message) {
+function getUserId(userId) {
     let options = {
         method: 'GET',
         uri: host + '/users',
         qs: {
-            slug: message['user']
+            slug: userId
         }
     };
     return rp(options).then(function (body) {
         let result = JSON.parse(body);
         if (result.length === 0) {
-            Promise.resolve(rtm.dataStore.getUserById(message['user'])).then(user => {
+            Promise.resolve(rtm.dataStore.getUserById(userId)).then(user => {
                 let create_options = {
                     method: 'POST',
                     uri: host + '/users',
                     form: {
                         name: user['real_name'],
-                        slug: message['user'],
+                        slug: userId,
                         email: user.profile['email']
                     }
                 };
                 rp(create_options).then(() => function (body) {
                     let result = JSON.parse(body);
-                    rtm.sendMessage(result['Message'], message['channel']);
-                    return true;
                 }).then(() => rp(options).then(function (body) {
                     const res = JSON.parse(body);
                     return res[0]['id'];
@@ -78,22 +76,28 @@ function getUserId(message) {
 
 
 rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
-    let xx = rtm.dataStore.getChannelGroupOrDMById(message['channel']);
-    console.log("test", xx);
+    let chan = rtm.dataStore.getChannelGroupOrDMById(message['channel']);
+    let is_channel = chan['is_channel'];
+    let messageText;
 
-    if ('text' in message) {
-        if (message['text'] === "users") {
+    if ('message' in message && 'text' in message['message']) {
+        messageText = message['message'];
+    } else if ('text' in message) {
+            messageText = message;
+    }
+    if (messageText) {
+        if (messageText['text'] === "users") {
             rp(host + '/users')
                 .then((json) => {
                     let response = "```" + stringTable.create(JSON.parse(json)) + "```";
                     rtm.sendMessage(response, message['channel']);
                 }).catch((err) => console.error(err));
-        } else if (message['text'].indexOf('feel') === 0 && message['text'].split(' ').length === 3) {
-            let timestamp = message['ts'].split('.')[0];
-            let emoji = message['text'].split(' ')[1];
-            let value = parseInt(message['text'].split(' ')[2]);
+        } else if (messageText['text'].indexOf('feel') === 0 && messageText['text'].split(' ').length === 3) {
+            let timestamp = messageText['ts'].split('.')[0];
+            let emoji = messageText['text'].split(' ')[1];
+            let value = parseInt(messageText['text'].split(' ')[2]);
             if (validate(emoji, value)) {
-                getUserId(message).then(user_id => {
+                getUserId(messageText['user']).then(user_id => {
                     if (user_id > -1) {
                         let options = {
                             method: 'POST',
@@ -118,44 +122,57 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
             } else {
                 rtm.sendMessage("Please provide valid emoji and value (1 - 10)!", message['channel']);
             }
-        } else if (message['text'] === "history") {
-            let timestamp = parseInt(message['ts'].split('.')[0]);
-            getUserId(message).then(user_id => {
-                if (user_id > -1) {
-                    const options = {
-                        method: 'GET',
-                        uri: host + '/moods',
-                        qs: {
-                            'start_date': timestamp - 604800,
-                            'end_date': timestamp,
-                            'user_id': user_id
-                        }
-                    };
-                    rp(options).then((json) => {
-                        let raw = JSON.parse(json);
-                        let result = "";
-                        for (const item of raw) {
-                            let theDate = new Date(parseInt(item['timestamp']) * 1000);
-                            result += theDate.toDateString() + " " + item['label'] + " " + item['value'] + "\n";
-                        }
-                        if (result.length > 0) {
-                            rtm.sendMessage(result, message['channel']);
-                        } else {
-                            rtm.sendMessage("No mood found!", message['channel']);
-                        }
-                    }).catch((err) => console.error(err));
-                } else {
-                    rtm.sendMessage("User does not exist!", message['channel']);
-                }
-            });
-        } else if (message['text'] === 'whoami') {
-            let user = rtm.dataStore.getUserById(message['user']);
+        } else if (messageText['text'] === "history") {
+            let timestamp = parseInt(messageText['ts'].split('.')[0]);
+            let member_list;
+            if (is_channel) {
+                member_list = chan['members'];
+            } else {
+                member_list = [messageText['user']]
+            }
+            for (const userId of member_list) {
+                getUserId(userId).then(user_id => {
+                    if (user_id > -1) {
+                        const options = {
+                            method: 'GET',
+                            uri: host + '/moods',
+                            qs: {
+                                'start_date': timestamp - 604800,
+                                'end_date': timestamp,
+                                'user_id': user_id
+                            }
+                        };
+                        rp(options).then((json) => {
+                            let raw = JSON.parse(json);
+                            let result = "";
+                            for (const item of raw) {
+                                let theDate = new Date(parseInt(item['timestamp']) * 1000);
+                                result += theDate.toDateString() + " " + item['label'] + " " + item['value'] + "\n";
+                            }
+                            rtm.sendMessage(userId, message['channel']);
+                            if (result.length > 0) {
+                                rtm.sendMessage(result, message['channel']);
+                            } else {
+                                rtm.sendMessage("No mood found!", message['channel']);
+                            }
+                        }).catch((err) => console.error(err));
+                    } else {
+                        rtm.sendMessage("User does not exist!", message['channel']);
+                    }
+                });
+            }
+        } else if (messageText['text'] === 'whoami') {
+            let user = rtm.dataStore.getUserById(messageText['user']);
             rtm.sendMessage(user.profile['real_name'], message['channel']);
         } else {
-            // Nothing
+            if (!is_channel) {
+                rtm.sendMessage('Sorry, I do not understand you', message['channel']);
+            }
         }
     } else {
-        // Nothing
+        if (!is_channel) {
+            rtm.sendMessage('Sorry, I do not understand you', message['channel']);
+        }
     }
 });
 

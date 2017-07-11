@@ -23,6 +23,7 @@
     "@slack/client": "^3.10.0",
     "dotenv": "^4.0.0",
     "promise": "^8.0.0",
+    "request-promise": "^4.2.1",
     "string-table": "^0.1.5"
   },
   "devDependencies": {
