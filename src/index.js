@@ -1,3 +1,6 @@
+"use strict";
+
+let CLIENT_EVENTS = require('@slack/client').CLIENT_EVENTS;
 let stringTable = require('string-table');
 let Promise = require('promise');
 let rp = require('request-promise');
@@ -9,22 +12,20 @@ let host = process.env.HOST;
 
 let rtm = new RtmClient(bot_token);
 
-let channel;
+let moodId;
 
 let users;
 
 // // The client will emit an RTM.AUTHENTICATED event on successful connection, with the `rtm.start` payload
-// rtm.on(CLIENT_EVENTS.RTM.AUTHENTICATED, (rtmStartData) => {
-//     // for (const c of rtmStartData.channels) {
-//     // if (c.is_member && c.name ==='prove-bot') { channel = c.id }
-//     // }
-//     console.log(`Logged in as ${rtmStartData.self.name} of team ${rtmStartData.team.name}, but not yet connected to a channel`);
-// });
+rtm.on(CLIENT_EVENTS.RTM.AUTHENTICATED, (rtmStartData) => {
+    moodId = rtmStartData.self.id;
+    console.log(`Logged in as ${rtmStartData.self.name} of team ${rtmStartData.team.name}, but not yet connected to a channel`);
+});
 
-// // you need to wait for the client to fully connect before you can send messages
-// rtm.on(CLIENT_EVENTS.RTM.RTM_CONNECTION_OPENED, function () {
-//     rtm.sendMessage("Hello!", channel);
-// });
+// you need to wait for the client to fully connect before you can send messages
+rtm.on(CLIENT_EVENTS.RTM.RTM_CONNECTION_OPENED, function () {
+    console.log('Now you can start talking!');
+});
 
 function process(str) {
     return str.substring(0, str.length - 3) + "000";
@@ -38,6 +39,7 @@ function validate(emoji, value) {
 }
 
 function getUserId(userId) {
+    if (userId === moodId) return Promise.resolve(-1);
     let options = {
         method: 'GET',
         uri: host + '/users',
@@ -70,7 +72,7 @@ function getUserId(userId) {
         }
     }).catch(function (err) {
         console.log(err);
-        return -1;
+        return Promise.resolve(-1);
     });
 }
 
@@ -78,14 +80,16 @@ function getUserId(userId) {
 rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
     let chan = rtm.dataStore.getChannelGroupOrDMById(message['channel']);
     let is_channel = chan['is_channel'];
+    let can_answer = !is_channel;
     let messageText;
 
     if ('message' in message && 'text' in message['message']) {
         messageText = message['message'];
     } else if ('text' in message) {
-            messageText = message;
+        messageText = message;
     }
     if (messageText) {
+        if (!can_answer) can_answer = messageText['text'].indexOf("<@" + moodId + ">") >= 0;
         if (messageText['text'] === "users") {
             rp(host + '/users')
                 .then((json) => {
@@ -137,27 +141,30 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
                             method: 'GET',
                             uri: host + '/moods',
                             qs: {
-                                'start_date': timestamp - 604800,
+                                'start_date': timestamp - 604800, // seconds of 7 days
                                 'end_date': timestamp,
                                 'user_id': user_id
                             }
                         };
-                        rp(options).then((json) => {
-                            let raw = JSON.parse(json);
-                            let result = "";
-                            for (const item of raw) {
-                                let theDate = new Date(parseInt(item['timestamp']) * 1000);
-                                result += theDate.toDateString() + " " + item['label'] + " " + item['value'] + "\n";
-                            }
-                            rtm.sendMessage(userId, message['channel']);
-                            if (result.length > 0) {
-                                rtm.sendMessage(result, message['channel']);
-                            } else {
-                                rtm.sendMessage("No mood found!", message['channel']);
-                            }
-                        }).catch((err) => console.error(err));
+                        Promise.resolve(rtm.dataStore.getUserById(userId))
+                            .then(user => rp(options).then((json) => {
+                                let raw = JSON.parse(json);
+                                let result = "";
+                                for (const item of raw) {
+                                    let theDate = new Date(parseInt(item['timestamp']) * 1000);
+                                    result += theDate.toDateString() + " " + item['label'] + " " + item['value'] + "\n";
+                                }
+                                rtm.sendMessage("*" + user.profile['real_name'] + "*", message['channel']);
+                                if (result.length > 0) {
+                                    rtm.sendMessage(result, message['channel']);
+                                } else {
+                                    rtm.sendMessage("No mood found!", message['channel']);
+                                }
+                            }).catch((err) => console.error(err)));
                     } else {
-                        rtm.sendMessage("User does not exist!", message['channel']);
+                        if (can_answer) {
+                            rtm.sendMessage("User does not exist!", message['channel']);
+                        }
                     }
                 });
             }
@@ -165,12 +172,12 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
             let user = rtm.dataStore.getUserById(messageText['user']);
             rtm.sendMessage(user.profile['real_name'], message['channel']);
         } else {
-            if (!is_channel) {
+            if (can_answer) {
                 rtm.sendMessage('Sorry, I do not understand you', message['channel']);
             }
         }
     } else {
-        if (!is_channel) {
+        if (can_answer) {
             rtm.sendMessage('Sorry, I do not understand you', message['channel']);
         }
     }
