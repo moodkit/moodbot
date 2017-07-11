@@ -171,14 +171,63 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
         } else if (messageText['text'] === 'whoami') {
             let user = rtm.dataStore.getUserById(messageText['user']);
             rtm.sendMessage(user.profile['real_name'], message['channel']);
+        } else if (messageText['text'] === 'sudo') {
+            let timestamp = parseInt(messageText['ts'].split('.')[0]);
+            let member_list;
+            if (is_channel) {
+                member_list = chan['members'];
+            } else {
+                member_list = [messageText['user']]
+            }
+            for (const userId of member_list) {
+                getUserId(userId).then(user_id => {
+                    if (user_id > -1) {
+                        const options = {
+                            method: 'GET',
+                            uri: host + '/average',
+                            qs: {
+                                'start_date': timestamp - 604800, // seconds of 7 days
+                                'end_date': timestamp,
+                                'user_id': user_id
+                            }
+                        };
+                        Promise.resolve(rtm.dataStore.getUserById(userId))
+                            .then(user => rp(options).then((json) => {
+                                let raw = JSON.parse(json);
+                                let result = "";
+                                for (const item of raw) {
+                                    if (typeof(item) === 'object' && 'average' in item) {
+                                        result = item['average'].toString();
+                                    }
+                                }
+                                rtm.sendMessage("*" + user.profile['real_name'] + "*", message['channel']);
+                                if (result.length > 0) {
+                                    rtm.sendMessage("In the past week, the average mood score is " + result, message['channel']);
+                                } else {
+                                    rtm.sendMessage("No mood found!", message['channel']);
+                                }
+                            }).catch((err) => console.error(err)));
+                    } else {
+                        if (can_answer) {
+                            rtm.sendMessage("User does not exist!", message['channel']);
+                        }
+                    }
+                });
+            }
+        } else if (messageText['text'] === 'help') {
+            rtm.sendMessage("*command list*\n" +
+                "> sudo `get the average mood from the past week` \n" +
+                "> history `get the mood from the past week` \n" +
+                "> feel [emoji] [value (1-10)] `tell the bot how you feel now`\n" +
+                "> help `get help info`", message['channel']);
         } else {
             if (can_answer) {
-                rtm.sendMessage('Sorry, I do not understand you', message['channel']);
+                rtm.sendMessage('Sorry, I do not understand you. Please type `help` for help', message['channel']);
             }
         }
     } else {
         if (can_answer) {
-            rtm.sendMessage('Sorry, I do not understand you', message['channel']);
+            rtm.sendMessage('Sorry, I do not understand you. Please type `help` for help', message['channel']);
         }
     }
 });
