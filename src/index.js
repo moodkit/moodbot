@@ -27,7 +27,7 @@ rtm.on(CLIENT_EVENTS.RTM.RTM_CONNECTION_OPENED, function () {
     console.log('Now you can start talking!');
 });
 
-function process(str) {
+function cutTime(str) {
     return str.substring(0, str.length - 3) + "000";
 }
 
@@ -107,7 +107,7 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
                             method: 'POST',
                             uri: host + '/moods',
                             form: {
-                                timestamp: process(timestamp),
+                                timestamp: cutTime(timestamp),
                                 label: emoji,
                                 value: value,
                                 user_id: user_id
