@@ -28,7 +28,8 @@ rtm.on(CLIENT_EVENTS.RTM.RTM_CONNECTION_OPENED, function () {
 });
 
 function cutTime(str) {
-    return str.substring(0, str.length - 3) + "000";
+    let x = Math.floor(parseInt(str) / 86400);
+    return x * 86400;
 }
 
 function validate(emoji, value) {
@@ -171,7 +172,7 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
         } else if (messageText['text'] === 'whoami') {
             let user = rtm.dataStore.getUserById(messageText['user']);
             rtm.sendMessage(user.profile['real_name'], message['channel']);
-        } else if (messageText['text'] === 'sudo') {
+        } else if (messageText['text'] === 'eval') {
             let timestamp = parseInt(messageText['ts'].split('.')[0]);
             let member_list;
             if (is_channel) {
@@ -216,7 +217,7 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
             }
         } else if (messageText['text'] === 'help') {
             rtm.sendMessage("*command list*\n" +
-                "> sudo `get the average mood from the past week` \n" +
+                "> eval `get the average mood from the past week` \n" +
                 "> history `get the mood from the past week` \n" +
                 "> feel [emoji] [value (1-10)] `tell the bot how you feel now`\n" +
                 "> help `get help info`", message['channel']);
