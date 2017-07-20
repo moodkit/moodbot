@@ -35,7 +35,7 @@ function cutTime(str) {
 function validate(emoji, value) {
     if (emoji.charAt(0) !== ':') return false;
     if (emoji.charAt(emoji.length - 1) !== ':') return false;
-    if (value < 1 || value > 10) return false;
+    if (value < 1 || value > 6) return false;
     return true;
 }
 
@@ -116,7 +116,11 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
                         };
                         rp(options).then(function (body) {
                             let result = JSON.parse(body);
-                            rtm.sendMessage(result['Message'], message['channel']);
+                            if (result['StatusCode'] === '200') {
+                                rtm.sendMessage(result['Message'], message['channel']);
+                            } else {
+                                rtm.sendMessage("We have your mood today. DM me tomorrow.", message['channel']);
+                            }
                         }).catch(function (err) {
                             console.log(err);
                         });
@@ -125,7 +129,7 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
                     }
                 });
             } else {
-                rtm.sendMessage("Please provide valid emoji and value (1 - 10)!", message['channel']);
+                rtm.sendMessage("Please provide valid emoji and value (1 - 6)!", message['channel']);
             }
         } else if (messageText['text'] === "history") {
             let timestamp = parseInt(messageText['ts'].split('.')[0]);
@@ -164,7 +168,7 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
                             }).catch((err) => console.error(err)));
                     } else {
                         if (can_answer) {
-                            rtm.sendMessage("User does not exist!", message['channel']);
+                            rtm.sendMessage("Sorry, I could not find your moods!", message['channel']);
                         }
                     }
                 });
@@ -172,7 +176,7 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
         } else if (messageText['text'] === 'whoami') {
             let user = rtm.dataStore.getUserById(messageText['user']);
             rtm.sendMessage(user.profile['real_name'], message['channel']);
-        } else if (messageText['text'] === 'eval') {
+        } else if (messageText['text'] === 'echo') {
             let timestamp = parseInt(messageText['ts'].split('.')[0]);
             let member_list;
             if (is_channel) {
@@ -201,9 +205,8 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
                                         result = item['average'].toString();
                                     }
                                 }
-                                rtm.sendMessage("*" + user.profile['real_name'] + "*", message['channel']);
                                 if (result.length > 0) {
-                                    rtm.sendMessage("In the past week, the average mood score is " + result, message['channel']);
+                                    rtm.sendMessage("In the past week, the average mood score of *" + user.profile['real_name'] + "* is " + result, message['channel']);
                                 } else {
                                     rtm.sendMessage("No mood found!", message['channel']);
                                 }
@@ -217,10 +220,12 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
             }
         } else if (messageText['text'] === 'help') {
             rtm.sendMessage("*command list*\n" +
-                "> eval `get the average mood from the past week` \n" +
+                "> echo `get the average mood from the past week` \n" +
                 "> history `get the mood from the past week` \n" +
-                "> feel [emoji] [value (1-10)] `tell the bot how you feel now`\n" +
-                "> help `get help info`", message['channel']);
+                "> feel [emoji] [value(1-6)] `tell the bot how you feel now`\n" +
+                "> help `get help info`\n" +
+                "```1 (depressed), 2 (sad), 3 (unhappy), 4 (satisfied), 5 (joyful), 6 (exuberant)```"
+                , message['channel']);
         } else {
             if (can_answer) {
                 rtm.sendMessage('Sorry, I do not understand you. Please type `help` for help', message['channel']);
