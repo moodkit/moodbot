@@ -83,6 +83,7 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
     let is_channel = chan['is_channel'];
     let can_answer = !is_channel;
     let messageText;
+    let re = /^fe[e]+l*/g;
 
     if ('message' in message && 'text' in message['message']) {
         messageText = message['message'];
@@ -97,7 +98,7 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
                     let response = "```" + stringTable.create(JSON.parse(json)) + "```";
                     rtm.sendMessage(response, message['channel']);
                 }).catch((err) => console.error(err));
-        } else if (messageText['text'].indexOf('feel') === 0 && messageText['text'].split(' ').length === 3) {
+        } else if (messageText['text'].toLowerCase().match(re) !== null && messageText['text'].split(' ').length === 3) {
             let timestamp = messageText['ts'].split('.')[0];
             let emoji = messageText['text'].split(' ')[1];
             let value = parseInt(messageText['text'].split(' ')[2]);
