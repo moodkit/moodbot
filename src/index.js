@@ -286,7 +286,7 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
       rtm.sendMessage("*command list*\n" +
           "> echo `get the average mood from the past week` \n" +
           "> history `get the mood from the past week` \n" +
-          "> feel [emoji] [value(1-6)] (\"[snippet]\") `tell the bot how you feel now`\n" +
+          "> feel [emoji] [value(1-6)] (\"[snippet]\") `tell the bot how you feel now, snippet is optional`\n" +
           "> quotes `get the snippets from the past week` \n" +
           "> help `get help info`\n" +
           "```1 (depressed), 2 (sad), 3 (unhappy), 4 (satisfied), 5 (joyful), 6 (exuberant)```"
