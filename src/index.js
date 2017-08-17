@@ -263,11 +263,12 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
             Promise.resolve(rtm.dataStore.getUserById(userId))
             .then(user => rp(options).then((json) => {
               let raw = JSON.parse(json);
-              let result = "Quotes: \n";
+              let result = "";
               for (const item of raw) {
-                result += "> " + item['content'] + " - " + user.profile['first_name'] + "\n";
+                result += "> " + item['content'] + " *- " + user.profile['first_name'] + "*\n";
               }
               if (result.length > 0) {
+                result = "Quotes: \n" + result;
                 rtm.sendMessage(result, message['channel']);
               } else {
                 rtm.sendMessage("No snippet found!", message['channel']);
