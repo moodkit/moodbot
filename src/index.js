@@ -130,7 +130,7 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
                 uri: host + '/snippets',
                 form: {
                   timestamp: cutTime(timestamp),
-                  content: snippet,
+                  content: snippet[0],
                   user_id: user_id
                 }
               };
