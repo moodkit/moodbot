@@ -78,8 +78,8 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
   let is_channel = chan['is_channel'];
   let can_answer = !is_channel;
   let messageText;
-  let re = /^fe[e]+l[a-z]*\s:[a-z]+:\s[1-6](\s“.*”)?$/g;
-  let snippet_re = /“.*”$/g;
+  let re = /^fe[e]+l[a-z]*\s:[a-z]+:\s[1-6](\s".*")?$/g;
+  let snippet_re = /".*"$/g;
 
   if ('message' in message && 'text' in message['message']) {
     messageText = message['message'];
@@ -288,7 +288,7 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
       rtm.sendMessage("*command list*\n" +
           "> echo `get the average mood from the past week` \n" +
           "> history `get the mood from the past week` \n" +
-          "> feel [emoji] [value(1-6)] (“[snippet]”) `tell the bot how you feel now, snippet is optional`\n" +
+          "> feel [emoji] [value(1-6)] (\"[snippet]\") `tell the bot how you feel now, snippet is optional`\n" +
           "> quotes `get the snippets from the past week` \n" +
           "> help `get help info`\n" +
           "```1 (depressed), 2 (sad), 3 (unhappy), 4 (satisfied), 5 (joyful), 6 (exuberant)```"
