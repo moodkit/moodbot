@@ -78,7 +78,7 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
   let is_channel = chan['is_channel'];
   let can_answer = !is_channel;
   let messageText;
-  let re = /^fe[e]+l[a-z]*\s:(.)+:\s[1-6](\s".*")?$/g;
+  let re = /^fe[e]+l[^\s]*\s:(.)+:\s[1-6](\s".*")?$/g;
   let snippet_re = /".*"$/g;
 
   if ('message' in message && 'text' in message['message']) {
@@ -250,6 +250,7 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
       } else {
         member_list = [messageText['user']]
       }
+      let result = "";
       for (const userId of member_list) {
         getUserId(userId).then(user_id => {
           if (user_id > -1) {
@@ -265,15 +266,8 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
             Promise.resolve(rtm.dataStore.getUserById(userId))
             .then(user => rp(options).then((json) => {
               let raw = JSON.parse(json);
-              let result = "";
               for (const item of raw) {
                 result += "> " + item['content'] + " *- " + user.profile['first_name'] + "*\n";
-              }
-              if (result.length > 0) {
-                result = "Quotes: \n" + result;
-                rtm.sendMessage(result, message['channel']);
-              } else {
-                rtm.sendMessage("No snippet found!", message['channel']);
               }
             }).catch((err) => console.error(err)));
           } else {
@@ -283,6 +277,12 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
             }
           }
         });
+      }
+      if (result.length > 0) {
+        result = "Quotes: \n" + result;
+        rtm.sendMessage(result, message['channel']);
+      } else {
+        rtm.sendMessage("No snippet found!", message['channel']);
       }
     } else if (messageText['text'] === 'help') {
       rtm.sendMessage("*command list*\n" +
