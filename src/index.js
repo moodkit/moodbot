@@ -138,6 +138,8 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
                 let result = JSON.parse(body);
                 if (result['StatusCode'] === '200') {
                   rtm.sendMessage(result['Message'], message['channel']);
+                } else {
+                  console.log(result);
                 }
               })
             }
