@@ -127,7 +127,7 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
             if (snippet) {
               let snippet_options = {
                 method: 'POST',
-                uri: host + '/snippet',
+                uri: host + '/snippets',
                 form: {
                   timestamp: cutTime(timestamp),
                   content: snippet,
