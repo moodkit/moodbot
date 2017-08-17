@@ -78,7 +78,7 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
   let is_channel = chan['is_channel'];
   let can_answer = !is_channel;
   let messageText;
-  let re = /^fe[e]+l[a-z]*\s:[a-z]+:\s[1-6](\s".*")?$/g;
+  let re = /^fe[e]+l[a-z]*\s:(.)+:\s[1-6](\s".*")?$/g;
   let snippet_re = /".*"$/g;
 
   if ('message' in message && 'text' in message['message']) {
