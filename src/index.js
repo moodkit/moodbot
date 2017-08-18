@@ -78,8 +78,7 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
   let is_channel = chan['is_channel'];
   let can_answer = !is_channel;
   let messageText;
-  let re = /^fe[e]+l[a-z]*\s:(.)+:\s[1-6](\s".*")?$/g;
-  let snippet_re = /".*"$/g;
+  let re = /^[fF][Ee][Ee]+[Ll]\S*\s(:.+:)\s([1-6])(?:\s(.*))?$/;
 
   if ('message' in message && 'text' in message['message']) {
     messageText = message['message'];
@@ -97,11 +96,12 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
         let response = "```" + stringTable.create(JSON.parse(json)) + "```";
         rtm.sendMessage(response, message['channel']);
       }).catch((err) => console.error(err));
-    } else if (messageText['text'].toLowerCase().match(re) !== null) {
+    } else if (messageText['text'].match(re) !== null) {
+      let matches = re.exec(messageText['text']);
       let timestamp = messageText['ts'].split('.')[0];
-      let emoji = messageText['text'].split(' ')[1];
-      let value = parseInt(messageText['text'].split(' ')[2]);
-      let snippet = messageText['text'].match(snippet_re);
+      let emoji = matches[1];
+      let value = parseInt(matches[2]);
+      let snippet = matches[3];
       getUserId(messageText['user']).then(user_id => {
         if (user_id > -1) {
           let options = {
@@ -130,7 +130,7 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
                 uri: host + '/snippets',
                 form: {
                   timestamp: cutTime(timestamp),
-                  content: snippet[0],
+                  content: snippet,
                   user_id: user_id
                 }
               };
@@ -250,7 +250,8 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
       } else {
         member_list = [messageText['user']]
       }
-      for (const userId of member_list) {
+      rtm.sendMessage("Quotes: \n", message['channel']);
+      for(const userId of member_list) {
         getUserId(userId).then(user_id => {
           if (user_id > -1) {
             const options = {
@@ -264,17 +265,18 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
             };
             Promise.resolve(rtm.dataStore.getUserById(userId))
             .then(user => rp(options).then((json) => {
-              let raw = JSON.parse(json);
               let result = "";
+              let raw = JSON.parse(json);
               for (const item of raw) {
-                result += "> " + item['content'] + " *- " + user.profile['first_name'] + "*\n";
+                result += "> " + item['content'] + " *- "
+                    + user.profile['first_name'] + "*\n";
               }
               if (result.length > 0) {
-                result = "Quotes: \n" + result;
                 rtm.sendMessage(result, message['channel']);
               } else {
-                rtm.sendMessage("No snippet found!", message['channel']);
+                // rtm.sendMessage("No snippet found for this user!", message['channel']);
               }
+
             }).catch((err) => console.error(err)));
           } else {
             if (can_answer) {
@@ -288,7 +290,7 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
       rtm.sendMessage("*command list*\n" +
           "> echo `get the average mood from the past week` \n" +
           "> history `get the mood from the past week` \n" +
-          "> feel [emoji] [value(1-6)] (\"[snippet]\") `tell the bot how you feel now, snippet is optional`\n" +
+          "> feel [emoji] [value(1-6)] ([snippet]) `tell the bot how you feel now, snippet is optional`\n" +
           "> quotes `get the snippets from the past week` \n" +
           "> help `get help info`\n" +
           "```1 (depressed), 2 (sad), 3 (unhappy), 4 (satisfied), 5 (joyful), 6 (exuberant)```"
