@@ -33,44 +33,50 @@ function cutTime(str) {
   return x * 86400;
 }
 
-function getUserId(userId) {
-  if (userId === moodId) {
-    return Promise.resolve(-1);
-  }
-  let options = {
-    method: 'GET',
-    uri: host + '/users',
-    qs: {
-      slug: userId
-    }
-  };
-  return rp(options).then(function (body) {
-    let result = JSON.parse(body);
-    if (result.length === 0) {
-      Promise.resolve(rtm.dataStore.getUserById(userId)).then(user => {
+function promiseCreateUser(userSlug) {
+  return rtm.dataStore.getUserById(userSlug)
+     .then(user => {
         let create_options = {
           method: 'POST',
           uri: host + '/users',
           form: {
             name: user['real_name'],
-            slug: userId,
+            slug: userSlug,
             email: user.profile['email']
           }
         };
-        rp(create_options).then(() => function (body) {
-          let result = JSON.parse(body);
-        }).then(() => rp(options).then(function (body) {
-          const res = JSON.parse(body);
-          return res[0]['id'];
-        }))
-      });
-    } else {
-      return result[0]['id'];
+        return rp(create_options);
+     });
+}
+
+function promiseUserBySlug(userSlug) {
+  return new Promise(function(resolve, reject) {
+    if (userSlug === moodId) {
+      reject(new Error("can't check yourself"));
     }
-  }).catch(function (err) {
-    console.log(err);
-    return Promise.resolve(-1);
+
+    rp({
+      method: 'GET',
+      uri: host + '/users',
+      json: true,
+      qs: {
+        slug: userSlug
+      }
+    }).then(function (results) {
+      if (results.length > 0) {
+        resolve(results[0].id);
+      }
+      reject(new Error("not found"))
+    });
   });
+}
+
+function promiseUserBySlugOrCreate(userSlug) {
+  return promiseUserBySlug(userSlug)
+    .catch(() =>
+        promiseCreateUser(userSlug).then(() =>
+            promiseUserBySlug(userSlug))
+    );
 }
 
 rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
@@ -78,8 +84,7 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
   let is_channel = chan['is_channel'];
   let can_answer = !is_channel;
   let messageText;
-  let re = /^fe[e]+l[^\s]*\s:(.)+:\s[1-6](\s".*")?$/g;
-  let snippet_re = /".*"$/g;
+  let re = /^fee+l\S*\s(:.+:)\s([1-6])(?:\s(.*))?$/;
 
   if ('message' in message && 'text' in message['message']) {
     messageText = message['message'];
@@ -98,11 +103,12 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
         rtm.sendMessage(response, message['channel']);
       }).catch((err) => console.error(err));
     } else if (messageText['text'].toLowerCase().match(re) !== null) {
+      let matches = re.exec(messageText['text'].toLowerCase());
       let timestamp = messageText['ts'].split('.')[0];
-      let emoji = messageText['text'].split(' ')[1];
-      let value = parseInt(messageText['text'].split(' ')[2]);
-      let snippet = messageText['text'].match(snippet_re);
-      getUserId(messageText['user']).then(user_id => {
+      let emoji = matches[1];
+      let value = parseInt(matches[2]);
+      let snippet = matches[3];
+      promiseUserBySlugOrCreate(messageText['user']).then(user_id => {
         if (user_id > -1) {
           let options = {
             method: 'POST',
@@ -159,7 +165,7 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
         member_list = [messageText['user']]
       }
       for (const userId of member_list) {
-        getUserId(userId).then(user_id => {
+        promiseUserBySlugOrCreate(userId).then(user_id => {
           if (user_id > -1) {
             const options = {
               method: 'GET',
@@ -207,7 +213,7 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
         member_list = [messageText['user']]
       }
       for (const userId of member_list) {
-        getUserId(userId).then(user_id => {
+        promiseUserBySlugOrCreate(userId).then(user_id => {
           if (user_id > -1) {
             const options = {
               method: 'GET',
@@ -252,7 +258,7 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
       }
       let result = "";
       for (const userId of member_list) {
-        getUserId(userId).then(user_id => {
+        promiseUserBySlugOrCreate(userId).then(user_id => {
           if (user_id > -1) {
             const options = {
               method: 'GET',
@@ -267,7 +273,7 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message) {
             .then(user => rp(options).then((json) => {
               let raw = JSON.parse(json);
               for (const item of raw) {
-                result += "> " + item['content'] + " *- " + user.profile['first_name'] + "*\n";
+                result += "> \"" + item['content'] + "\" *- " + user.profile['first_name'] + "*\n";
               }
             }).catch((err) => console.error(err)));
           } else {
