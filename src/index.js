@@ -249,7 +249,7 @@ rtm.on(RTM_EVENTS.MESSAGE, (message) => {
       , message.channel);
   } else if (message.text.substr(0, 4).toLowerCase() === 'feel') {
     const timestamp = getTimestampInSeconds(message);
-    const [first, second, ...rest] = message.text.split(' ');
+    const [command, first, second, ...rest] = message.text.split(' ');
     const snippet = rest && rest.join(' ');
 
     let emoji;
@@ -285,8 +285,8 @@ rtm.on(RTM_EVENTS.MESSAGE, (message) => {
             } else {
               console.error('Error while saving snippet', response);
             }
-          }),
-        ),
+          })
+        )
       )
       .catch(err => console.error('Error while performing the "feel" command:', err));
   } else if (shouldReportErrors) {
