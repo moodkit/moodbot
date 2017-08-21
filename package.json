@@ -8,6 +8,8 @@
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
+    "test:lint": "eslint *.js",
+    "test:lint:fix": "eslint src/**/*.js --fix",
     "dev": "env $(cat .env) nodemon -e js,html --inspect src/index.js"
   },
   "repository": {
@@ -22,12 +24,14 @@
   "dependencies": {
     "@slack/client": "^3.10.0",
     "dotenv": "^4.0.0",
-    "promise": "^8.0.0",
-    "request-promise": "^4.2.1",
-    "string-table": "^0.1.5",
-    "lodash": "^4.17.0"
+    "lodash": "^4.17.0",
+    "request-promise-native": "^1.0.4",
+    "string-table": "^0.1.5"
   },
   "devDependencies": {
+    "eslint": "^4.5.0",
+    "eslint-config-airbnb-base": "^11.3.1",
+    "eslint-plugin-import": "^2.7.0",
     "nodemon": "^1.11.0"
   }
 }

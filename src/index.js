@@ -1,24 +1,24 @@
-'use strict';
 const _ = require('lodash');
 const stringTable = require('string-table');
 const CLIENT_EVENTS = require('@slack/client').CLIENT_EVENTS;
 const RTM_EVENTS = require('@slack/client').RTM_EVENTS;
 const RtmClient = require('@slack/client').RtmClient;
 const moodApi = require('./api-client');
-const bot_token = process.env.SLACK_BOT_TOKEN;
-const rtm = new RtmClient(bot_token);
+
+const botToken = process.env.SLACK_BOT_TOKEN;
+const rtm = new RtmClient(botToken);
 
 let botId;
 
-// // The client will emit an RTM.AUTHENTICATED event on successful connection, with the `rtm.start` payload
+// The client will emit an RTM.AUTHENTICATED event on successful connection, with the `rtm.start` payload
 rtm.on(CLIENT_EVENTS.RTM.AUTHENTICATED, (rtmStartData) => {
   botId = rtmStartData.self.id;
   console.log(
-      `Logged in as ${rtmStartData.self.name} of team ${rtmStartData.team.name}, but not yet connected to a channel`);
+    `Logged in as ${rtmStartData.self.name} of team ${rtmStartData.team.name}, but not yet connected to a channel`);
 });
 
 // you need to wait for the client to fully connect before you can send messages
-rtm.on(CLIENT_EVENTS.RTM.RTM_CONNECTION_OPENED, function () {
+rtm.on(CLIENT_EVENTS.RTM.RTM_CONNECTION_OPENED, () => {
   console.log('Now you can start talking!');
 });
 
@@ -31,20 +31,26 @@ function isMoodValue(str) {
   return /^[1-6]$/.test(str);
 }
 
+/**
+ * Given the slack user id, retrieves the user id used by the mood API.
+ * Unknown users are created on the fly.
+ * @param slackUserId
+ * @returns {Promise.<TResult>}
+ */
 function promiseGetUserId(slackUserId) {
   return moodApi.fetchUsersBySlackId(slackUserId)
-    .then(users => {
-      if (users.length) {
-        return users[0].id; // found at first try :)
+    .then((users) => {
+      if (users.length > 0) {
+        return users;
       }
 
       // Not found --> silently create the user and retry
       const slackUser = rtm.dataStore.getUserById(slackUserId);
-      console.log('Creating user for:', slackUser.profile['email']);
-      return moodApi.createUser(slackUserId, slackUser['real_name'], slackUser.profile.email)
-        .then(() => moodApi.fetchUsersBySlackId(slackUserId))
-        .then(users => users[0].id);
-    });
+      console.log('Creating user for:', slackUser.profile.email);
+      return moodApi.createUser(slackUserId, slackUser.real_name, slackUser.profile.email)
+        .then(() => moodApi.fetchUsersBySlackId(slackUserId));
+    })
+    .then(users => users[0].id);
 }
 
 function getChannelHumanMembers(message) {
@@ -56,12 +62,12 @@ function getChannelHumanMembers(message) {
 
   return channelInfo.members
     .map(memberId => rtm.dataStore.getUserById(memberId))
-    .filter(slackUser => slackUser && slackUser.id !== botId && !slackUser['is_bot']);
+    .filter(slackUser => slackUser && slackUser.id !== botId && !slackUser.is_bot);
 }
 
 function isInPublicChannel(message) {
   const channelInfo = rtm.dataStore.getChannelGroupOrDMById(message.channel);
-  return channelInfo['is_channel'];
+  return channelInfo.is_channel;
 }
 
 function isMoodBotMentioned(message) {
@@ -107,21 +113,20 @@ rtm.on(RTM_EVENTS.MESSAGE, (message) => {
     return;
   }
 
+  // convert a message_changed payload to look like a normal message
   if (message.subtype === 'message_changed') {
-    // convert a message_changed payload to look like a normal message
-    message = {
+    message = { // eslint-disable-line no-param-reassign
       type: message.type,
       channel: message.channel,
       user: message.message.user,
       text: message.message.text,
-      ts: message.message.ts // this will be the original timestamp
-    }
+      ts: message.message.ts, // this will be the original timestamp
+    };
   } else if (message.subtype) {
-    // other subtypes are not handled
-    return;
+    return; // other subtypes are not handled
   }
 
-  if(message.user === botId) {
+  if (message.user === botId) {
     // good bots should not talk to themselves
     return;
   }
@@ -131,48 +136,40 @@ rtm.on(RTM_EVENTS.MESSAGE, (message) => {
 
   if (message.text === 'users') {
     moodApi.fetchAllUsers()
-    .then(users => {
-      rtm.sendMessage('```' + stringTable.create(users) + '```', message.channel);
-    })
-    .catch(err => console.error('Error while performing the "users" command:', err));
-  }
-
-  else if (message.text === 'history') {
+      .then((users) => {
+        rtm.sendMessage(`\`\`\`${stringTable.create(users)}\`\`\``, message.channel);
+      })
+      .catch(err => console.error('Error while performing the "users" command:', err));
+  } else if (message.text === 'history') {
     rtm.sendMessage('History: \n', message.channel);
     const timestamp = getTimestampInSeconds(message);
     const channelMembers = getChannelHumanMembers(message);
 
-    for(const slackUser of channelMembers) {
+    for (const slackUser of channelMembers) {
       promiseGetUserId(slackUser.id)
-      .then(userId => moodApi.fetchMoods(userId, timestamp - A_WEEK_IN_SECONDS, timestamp))
-      .then(moods => {
-        let result = '';
-        for (const mood of moods) {
-          let theDate = new Date(parseInt(mood.timestamp, 10) * 1000);
-          result += `${theDate.toDateString()} ${mood.label} ${mood.value}\n`;
-        }
-        rtm.sendMessage('*' + slackUser.profile['real_name'] + '*',
-          message.channel);
-        if (result.length > 0) {
-          rtm.sendMessage(result, message.channel);
-        } else {
-          rtm.sendMessage('No mood found!', message.channel);
-        }
-      })
-      .catch(err => console.error('Error while performing the "history" command:', err));
+        .then(userId => moodApi.fetchMoods(userId, timestamp - A_WEEK_IN_SECONDS, timestamp))
+        .then((moods) => {
+          let result = '';
+          for (const mood of moods) {
+            const theDate = new Date(parseInt(mood.timestamp, 10) * 1000);
+            result += `${theDate.toDateString()} ${mood.label} ${mood.value}\n`;
+          }
+          rtm.sendMessage(`*${slackUser.profile.real_name}*`,
+            message.channel);
+          if (result.length > 0) {
+            rtm.sendMessage(result, message.channel);
+          } else {
+            rtm.sendMessage('No mood found!', message.channel);
+          }
+        })
+        .catch(err => console.error('Error while performing the "history" command:', err));
     }
-  }
-
-  // TODO do we need this?
-  else if (message.text === 'whoami') {
+  } else if (message.text === 'whoami') {
     const slackUser = rtm.dataStore.getUserById(message.user);
-    rtm.sendMessage(slackUser.profile['real_name'], message.channel);
-  }
-
-  else if (message.text.startsWith('hello') && isMoodBotMentioned(message)) {
+    rtm.sendMessage(slackUser.profile.real_name, message.channel);
+  } else if (message.text.startsWith('hello') && isMoodBotMentioned(message)) {
     const slackUser = rtm.dataStore.getUserById(message.user);
-    const greeting = `Oh, hi ${slackUser.profile['real_name']}!`;
-
+    const greeting = `Oh, hi ${slackUser.profile.real_name}!`;
     const botMoodMessage = _.sample([
       'I feel like an amazing unicorn! How do you `feel`?',
       'What a great day! How do you `feel`?',
@@ -194,60 +191,53 @@ rtm.on(RTM_EVENTS.MESSAGE, (message) => {
       'What a great day to annoy a *VERY BUSY* moodbot. What do you want, human?',
       'Not you again! Just type a command and leave me be!',
     ]);
-
-    rtm.sendMessage(greeting + '\n' + botMoodMessage, message.channel);
-  }
-
-  else if (message.text === 'echo') {
-    rtm.sendMessage('History: \n', message.channel);
+    rtm.sendMessage(`${greeting}\n${botMoodMessage}`, message.channel);
+  } else if (message.text === 'echo') {
+    rtm.sendMessage('Last week\'s average mood scores: \n', message.channel);
     const timestamp = getTimestampInSeconds(message);
     const channelMembers = getChannelHumanMembers(message);
 
-    for(const slackUser of channelMembers) {
+    for (const slackUser of channelMembers) {
       promiseGetUserId(slackUser.id)
-      .then(userId => moodApi.fetchAverages(userId, timestamp - A_WEEK_IN_SECONDS, timestamp))
-      .then(averages => {
-        let result = '';
-        // TODO why is this not a simple number? looks like an array of objects of which one will have a 'average' property
-        for (const averageItem of averages) {
-          if (typeof averageItem === 'object' && 'average' in averageItem) {
-            result = averageItem.average.toString();
-            break;
+        .then(userId => moodApi.fetchAverages(userId, timestamp - A_WEEK_IN_SECONDS, timestamp))
+        .then((averages) => {
+          let result = '';
+          // TODO why is this not a simple number? looks like an array of objects of which one will have a 'average' property
+          for (const averageItem of averages) {
+            if (typeof averageItem === 'object' && 'average' in averageItem) {
+              result = averageItem.average.toString();
+              break;
+            }
           }
-        }
-        if (result.length > 0) {
-          rtm.sendMessage(`In the past week, the average mood score of *${slackUser.profile['real_name']}* is ${result}`, message.channel);
-        } else {
-          rtm.sendMessage('No mood found!', message.channel);
-        }
-      })
-      .catch(err => console.error('Error while performing the "echo" command:', err));
+          if (result.length > 0) {
+            rtm.sendMessage(`*${slackUser.profile.real_name}* : ${result}`, message.channel);
+          } else {
+            rtm.sendMessage('No mood found!', message.channel);
+          }
+        })
+        .catch(err => console.error('Error while performing the "echo" command:', err));
     }
-  }
-
-  else if (message.text === 'quotes') {
+  } else if (message.text === 'quotes') {
     rtm.sendMessage('Quotes: \n', message.channel);
     const timestamp = getTimestampInSeconds(message);
     const channelMembers = getChannelHumanMembers(message);
 
     // for each member of the channel, retrieve snippets of the last week and report them
-    for(const slackUser of channelMembers) {
+    for (const slackUser of channelMembers) {
       promiseGetUserId(slackUser.id)
-      .then(userId => moodApi.fetchSnippets(userId, timestamp - A_WEEK_IN_SECONDS, timestamp))
-      .then(snippets => {
-        let result = '';
-        for (const snippet of snippets) {
-          result += `> ${snippet.content} *- ${slackUser.profile['first_name']}*\n`;
-        }
-        if (result.length > 0) {
-          rtm.sendMessage(result, message.channel);
-        }
-      })
-      .catch(err => console.error('Error while performing the "quotes" command:', err));
+        .then(userId => moodApi.fetchSnippets(userId, timestamp - A_WEEK_IN_SECONDS, timestamp))
+        .then((snippets) => {
+          let result = '';
+          for (const snippet of snippets) {
+            result += `> ${snippet.content} *- ${slackUser.profile.first_name}*\n`;
+          }
+          if (result.length > 0) {
+            rtm.sendMessage(result, message.channel);
+          }
+        })
+        .catch(err => console.error('Error while performing the "quotes" command:', err));
     }
-  }
-
-  else if (message.text === 'help') {
+  } else if (message.text === 'help') {
     rtm.sendMessage('*command list*\n' +
         '> feel [emoji] [1-6] ([snippet]) `tell the bot how you feel now, snippet is optional`\n' +
         '> echo `get the average mood from the past week` \n' +
@@ -256,10 +246,8 @@ rtm.on(RTM_EVENTS.MESSAGE, (message) => {
         '> hello @moodbot `say hi to me and i will tell you how i feel` \n' +
         '> help `get help info`\n' +
         '```1 (depressed), 2 (sad), 3 (unhappy), 4 (satisfied), 5 (joyful), 6 (exuberant)```'
-        , message.channel);
-  }
-
-  else if (message.text.substr(0, 4).toLowerCase() === 'feel') {
+      , message.channel);
+  } else if (message.text.substr(0, 4).toLowerCase() === 'feel') {
     const timestamp = getTimestampInSeconds(message);
     const [first, second, ...rest] = message.text.split(' ');
     const snippet = rest && rest.join(' ');
@@ -282,33 +270,27 @@ rtm.on(RTM_EVENTS.MESSAGE, (message) => {
     }
 
     promiseGetUserId(message.user)
-    .then(userId => {
-      return moodApi.createMood(userId, timestamp, emoji, value)
-        .then(body => {
-          const result = JSON.parse(body);
-          if (result['StatusCode'] === '200') {
-            rtm.sendMessage(result['Message'], message.channel);
+      .then(userId => moodApi.createMood(userId, timestamp, emoji, value)
+        .then((response) => {
+          if (response.StatusCode === '200') {
+            rtm.sendMessage(response.Message, message.channel);
           } else {
             rtm.sendMessage('We have your mood today. Reach out to me tomorrow.', message.channel);
           }
-
-          return !snippet ||
-            moodApi.createSnippet(userId, timestamp, snippet)
-            .then(function (body) {
-              const result = JSON.parse(body);
-              if (result['StatusCode'] === '200') {
-                rtm.sendMessage(result['Message'], message.channel);
-              } else {
-                console.error('Error while saving snippet', result);
-              }
-            });
-        });
-    })
-    .catch(err => console.error('Error while performing the "feel" command:', err));
-  }
-
-  // none of the commands matched
-  else if (shouldReportErrors) {
+        })
+        .then(() => !snippet || moodApi.createSnippet(userId, timestamp, snippet)
+          .then((response) => {
+            if (response.StatusCode === '200') {
+              rtm.sendMessage(response.Message, message.channel);
+            } else {
+              console.error('Error while saving snippet', response);
+            }
+          }),
+        ),
+      )
+      .catch(err => console.error('Error while performing the "feel" command:', err));
+  } else if (shouldReportErrors) {
+    // none of the commands matched
     rtm.sendMessage('Sorry, I do not understand you. Please type `help` for help', message.channel);
   }
 });

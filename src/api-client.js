@@ -1,5 +1,5 @@
-'use strict';
-const rp = require('request-promise');
+const rp = require('request-promise-native');
+
 const host = process.env.HOST;
 
 /**
@@ -8,8 +8,7 @@ const host = process.env.HOST;
  * @param timestamp
  * @returns {number}
  */
-function _toStartOfDay(timestamp) {
-  // TODO if more date manipulation is needed, consider using moment.js
+function toStartOfDay(timestamp) {
   const A_DAY_IN_SECONDS = 86400;
   return Math.floor(timestamp / A_DAY_IN_SECONDS) * A_DAY_IN_SECONDS;
 }
@@ -18,86 +17,89 @@ module.exports = {
   fetchAllUsers() {
     return rp({
       method: 'GET',
-      uri: host + '/users',
-      json: true
+      uri: `${host}/users`,
+      json: true,
     });
   },
   fetchUsersBySlackId(slackUserId) {
     return rp({
       method: 'GET',
-      uri: host + '/users',
+      uri: `${host}/users`,
       qs: { slug: slackUserId },
-      json: true
+      json: true,
     });
   },
   createUser(slackUserId, name, email) {
     return rp({
       method: 'POST',
-      uri: host + '/users',
+      uri: `${host}/users`,
       form: {
         slug: slackUserId,
-        name: name,
-        email: email
-      }
+        name,
+        email,
+      },
+      json: true,
     });
   },
   createMood(moodUserId, timestamp, label, value) {
     return rp({
       method: 'POST',
-      uri: host + '/moods',
+      uri: `${host}/moods`,
       form: {
-        timestamp: _toStartOfDay(timestamp),
-        label: label,
-        value: value,
-        user_id: moodUserId
-      }
+        timestamp: toStartOfDay(timestamp),
+        label,
+        value,
+        user_id: moodUserId,
+      },
+      json: true,
     });
   },
   createSnippet(moodUserId, timestamp, content) {
     return rp({
       method: 'POST',
-      uri: host + '/snippets',
+      uri: `${host}/snippets`,
       form: {
-        timestamp: _toStartOfDay(timestamp),
-        content: content,
-        user_id: moodUserId
-      }
+        timestamp: toStartOfDay(timestamp),
+        content,
+        user_id: moodUserId,
+      },
+      json: true,
     });
   },
   fetchMoods(moodUserId, start, end) {
     return rp({
       method: 'GET',
-      uri: host + '/moods',
-      json: true,
+      uri: `${host}/moods`,
       qs: {
-        'start_date': start,
-        'end_date': end,
-        'user_id': moodUserId
-      }
+        start_date: start,
+        end_date: end,
+        user_id: moodUserId,
+      },
+      json: true,
     });
   },
   fetchAverages(moodUserId, start, end) {
     return rp({
       method: 'GET',
-      uri: host + '/average',
-      json: true,
+      uri: `${host}/average`,
       qs: {
-        'start_date': start,
-        'end_date': end,
-        'user_id': moodUserId
-      }
+        start_date: start,
+        end_date: end,
+        user_id: moodUserId,
+      },
+      json: true,
     });
   },
   fetchSnippets(moodUserId, start, end) {
     return rp({
       method: 'GET',
-      uri: host + '/snippets',
-      json: true,
+      uri: `${host}/snippets`,
       qs: {
-        'start_date': start,
-        'end_date': end,
-        'user_id': moodUserId
-      }
+        start_date: start,
+        end_date: end,
+        user_id: moodUserId,
+      },
+      json: true,
     });
   },
 };
