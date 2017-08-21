@@ -24,7 +24,8 @@
     "dotenv": "^4.0.0",
     "promise": "^8.0.0",
     "request-promise": "^4.2.1",
-    "string-table": "^0.1.5"
+    "string-table": "^0.1.5",
+    "lodash": "^4.17.0"
   },
   "devDependencies": {
     "nodemon": "^1.11.0"
