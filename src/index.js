@@ -170,7 +170,7 @@ rtm.on(RTM_EVENTS.MESSAGE, (message) => {
   } else if (message.text.toLowerCase() === 'hello' ||
       (message.text.toLowerCase().startsWith('hello') && isMoodBotMentioned(message))) {
     const slackUser = rtm.dataStore.getUserById(message.user);
-    const greeting = `Oh, hi ${slackUser.profile.real_name}!`;
+    const greeting = `Oh, hi ${slackUser.profile.first_name}!`;
     const botMoodMessage = _.sample([
       'I feel like an amazing unicorn! How do you `feel`?',
       'What a great day! How do you `feel`?',
@@ -244,7 +244,7 @@ rtm.on(RTM_EVENTS.MESSAGE, (message) => {
         '> echo `get the average mood from the past week` \n' +
         '> history `get the mood from the past week` \n' +
         '> quotes `get the snippets from the past week` \n' +
-        '> hello`say hi to me and i will tell you how i feel` \n' +
+        '> hello `say hi to me and i will tell you how i feel` \n' +
         '> help `get help info`\n' +
         '```1 (depressed), 2 (sad), 3 (unhappy), 4 (satisfied), 5 (joyful), 6 (exuberant)```'
       , message.channel);
