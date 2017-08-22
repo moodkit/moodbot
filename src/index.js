@@ -134,13 +134,13 @@ rtm.on(RTM_EVENTS.MESSAGE, (message) => {
   // moodbot is shy
   const shouldReportErrors = isMoodBotMentioned(message) || !isInPublicChannel(message);
 
-  if (message.text === 'users') {
+  if (message.text.toLowerCase() === 'users') {
     moodApi.fetchAllUsers()
       .then((users) => {
         rtm.sendMessage(`\`\`\`${stringTable.create(users)}\`\`\``, message.channel);
       })
       .catch(err => console.error('Error while performing the "users" command:', err));
-  } else if (message.text === 'history') {
+  } else if (message.text.toLowerCase() === 'history') {
     rtm.sendMessage('History: \n', message.channel);
     const timestamp = getTimestampInSeconds(message);
     const channelMembers = getChannelHumanMembers(message);
@@ -164,10 +164,10 @@ rtm.on(RTM_EVENTS.MESSAGE, (message) => {
         })
         .catch(err => console.error('Error while performing the "history" command:', err));
     }
-  } else if (message.text === 'whoami') {
+  } else if (message.text.toLowerCase() === 'whoami') {
     const slackUser = rtm.dataStore.getUserById(message.user);
     rtm.sendMessage(slackUser.profile.real_name, message.channel);
-  } else if (message.text.startsWith('hello') && isMoodBotMentioned(message)) {
+  } else if (message.text.toLowerCase() === 'hello') {
     const slackUser = rtm.dataStore.getUserById(message.user);
     const greeting = `Oh, hi ${slackUser.profile.real_name}!`;
     const botMoodMessage = _.sample([
@@ -192,7 +192,7 @@ rtm.on(RTM_EVENTS.MESSAGE, (message) => {
       'Not you again! Just type a command and leave me be!',
     ]);
     rtm.sendMessage(`${greeting}\n${botMoodMessage}`, message.channel);
-  } else if (message.text === 'echo') {
+  } else if (message.text.toLowerCase() === 'echo') {
     rtm.sendMessage('Last week\'s average mood scores: \n', message.channel);
     const timestamp = getTimestampInSeconds(message);
     const channelMembers = getChannelHumanMembers(message);
@@ -217,7 +217,7 @@ rtm.on(RTM_EVENTS.MESSAGE, (message) => {
         })
         .catch(err => console.error('Error while performing the "echo" command:', err));
     }
-  } else if (message.text === 'quotes') {
+  } else if (message.text.toLowerCase() === 'quotes') {
     rtm.sendMessage('Quotes: \n', message.channel);
     const timestamp = getTimestampInSeconds(message);
     const channelMembers = getChannelHumanMembers(message);
@@ -237,7 +237,7 @@ rtm.on(RTM_EVENTS.MESSAGE, (message) => {
         })
         .catch(err => console.error('Error while performing the "quotes" command:', err));
     }
-  } else if (message.text === 'help') {
+  } else if (message.text.toLowerCase() === 'help') {
     rtm.sendMessage('*command list*\n' +
         '> feel [emoji] [1-6] ([snippet]) `tell the bot how you feel now, snippet is optional`\n' +
         '> echo `get the average mood from the past week` \n' +
@@ -249,19 +249,19 @@ rtm.on(RTM_EVENTS.MESSAGE, (message) => {
       , message.channel);
   } else if (message.text.substr(0, 4).toLowerCase() === 'feel') {
     const timestamp = getTimestampInSeconds(message);
-    const [command, first, second, ...rest] = message.text.split(' ');
+    const [, firstArg, secondArg, ...rest] = message.text.split(' ');
     const snippet = rest && rest.join(' ');
 
     let emoji;
     let value;
 
     // if the emoji and value are swapped, fixes it for you
-    if (isEmoji(first) && isMoodValue(second)) {
-      emoji = first;
-      value = parseInt(second, 10);
-    } else if (isMoodValue(first) && isEmoji(second)) {
-      value = parseInt(first, 10);
-      emoji = second;
+    if (isEmoji(firstArg) && isMoodValue(secondArg)) {
+      emoji = firstArg;
+      value = parseInt(secondArg, 10);
+    } else if (isMoodValue(firstArg) && isEmoji(secondArg)) {
+      value = parseInt(firstArg, 10);
+      emoji = secondArg;
     } else {
       rtm.sendMessage('Sorry, I do not understand you. The "feel" command syntax is:\n' +
         '`feel [emoji] [1-6] ([snippet])`\n' +
