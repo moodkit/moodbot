@@ -8,8 +8,8 @@
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "test:lint": "eslint *.js",
-    "test:lint:fix": "eslint src/**/*.js --fix",
+    "test:lint": "eslint **/*.js",
+    "test:lint:fix": "eslint **/*.js --fix",
     "dev": "env $(cat .env) nodemon -e js,html --inspect src/index.js"
   },
   "repository": {
