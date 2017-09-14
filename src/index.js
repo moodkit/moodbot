@@ -25,7 +25,7 @@ rtm.on(CLIENT_EVENTS.RTM.RTM_CONNECTION_OPENED, () => {
 const A_WEEK_IN_SECONDS = 604800;
 
 function isEmoji(str) {
-  return /^:[\w-]+:$/.test(str);
+  return /^:[\w-+]+:$/.test(str);
 }
 function isMoodValue(str) {
   return /^[1-6]$/.test(str);
@@ -240,7 +240,7 @@ rtm.on(RTM_EVENTS.MESSAGE, (message) => {
     }
   } else if (message.text.toLowerCase() === 'help') {
     rtm.sendMessage('*command list*\n' +
-        '> feel [emoji] [1-6] ([snippet]) `tell the bot how you feel now, snippet is optional`\n' +
+        '> feel/felt [emoji] [1-6] ([snippet]) `tell the bot how you feel/felt now, snippet is optional`\n' +
         '> echo `get the average mood from the past week` \n' +
         '> history `get the mood from the past week` \n' +
         '> quotes `get the snippets from the past week` \n' +
@@ -248,8 +248,12 @@ rtm.on(RTM_EVENTS.MESSAGE, (message) => {
         '> help `get help info`\n' +
         '```1 (depressed), 2 (sad), 3 (unhappy), 4 (satisfied), 5 (joyful), 6 (exuberant)```'
       , message.channel);
-  } else if (message.text.substr(0, 4).toLowerCase() === 'feel') {
-    const timestamp = getTimestampInSeconds(message);
+  } else if (message.text.substr(0, 4).toLowerCase() === 'feel' || message.text.substr(0, 4).toLowerCase() === 'felt') {
+    const command = message.text.substr(0, 4).toLowerCase();
+    let timestamp = getTimestampInSeconds(message);
+    if (command === 'felt') {
+      timestamp -= 86400;
+    }
     const [, firstArg, secondArg, ...rest] = message.text.split(' ');
     const snippet = rest && rest.join(' ');
 
@@ -264,8 +268,8 @@ rtm.on(RTM_EVENTS.MESSAGE, (message) => {
       value = parseInt(firstArg, 10);
       emoji = secondArg;
     } else {
-      rtm.sendMessage('Sorry, I do not understand you. The "feel" command syntax is:\n' +
-        '`feel [emoji] [1-6] ([snippet])`\n' +
+      rtm.sendMessage('Sorry, I do not understand you. The "' + command + '" command syntax is:\n' +
+        '`' + command + ' [emoji] [1-6] ([snippet])`\n' +
         'For more help, please type `help`', message.channel);
       return;
     }
@@ -276,7 +280,15 @@ rtm.on(RTM_EVENTS.MESSAGE, (message) => {
           if (response.StatusCode === '200') {
             rtm.sendMessage(response.Message, message.channel);
           } else {
-            rtm.sendMessage('We have your mood today. Reach out to me tomorrow.', message.channel);
+            if (command === 'feel') {
+              rtm.sendMessage(
+                  'We have your mood today. Reach out to me tomorrow.',
+                  message.channel);
+            } else {
+              rtm.sendMessage(
+                  'We have your mood yesterday.',
+                  message.channel);
+            }
           }
         })
         .then(() => !snippet || moodApi.createSnippet(userId, timestamp, snippet)
@@ -289,7 +301,7 @@ rtm.on(RTM_EVENTS.MESSAGE, (message) => {
           })
         )
       )
-      .catch(err => console.error('Error while performing the "feel" command:', err));
+      .catch(err => console.error('Error while performing the "' + command + '" command:', err));
   } else if (shouldReportErrors) {
     // none of the commands matched
     rtm.sendMessage('Sorry, I do not understand you. Please type `help` for help', message.channel);
