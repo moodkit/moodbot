@@ -249,12 +249,8 @@ rtm.on(RTM_EVENTS.MESSAGE, (message) => {
         '> help `get help info`\n' +
         '```1 (depressed), 2 (sad), 3 (unhappy), 4 (satisfied), 5 (joyful), 6 (exuberant)```'
       , message.channel);
-  } else if (message.text.substr(0, 4).toLowerCase() === 'feel' || message.text.substr(0, 4).toLowerCase() === 'felt') {
-    const command = message.text.substr(0, 4).toLowerCase();
+  } else if (message.text.substr(0, 4).toLowerCase() === 'feel') {
     let timestamp = getTimestampInSeconds(message);
-    if (command === 'felt') {
-      timestamp -= 86400;
-    }
     const [, firstArg, secondArg, ...rest] = message.text.split(' ');
     const snippet = rest && rest.join(' ');
 
@@ -269,40 +265,78 @@ rtm.on(RTM_EVENTS.MESSAGE, (message) => {
       value = parseInt(firstArg, 10);
       emoji = secondArg;
     } else {
-      rtm.sendMessage('Sorry, I do not understand you. The "' + command + '" command syntax is:\n' +
-        '`' + command + ' [emoji] [1-6] ([snippet])`\n' +
-        'For more help, please type `help`', message.channel);
+      rtm.sendMessage('Sorry, I do not understand you. The "feel" command syntax is:\n' +
+          '`feel [emoji] [1-6] ([snippet])`\n' +
+          'For more help, please type `help`', message.channel);
       return;
     }
 
     promiseGetUserId(message.user)
-      .then(userId => moodApi.createMood(userId, timestamp, emoji, value)
+    .then(userId => moodApi.createMood(userId, timestamp, emoji, value)
+      .then((response) => {
+        if (response.StatusCode === '200') {
+          rtm.sendMessage(response.Message, message.channel);
+        } else {
+          rtm.sendMessage(
+              'We have your mood today. Reach out to me tomorrow.',
+              message.channel);
+        }
+      })
+      .then(() => !snippet || moodApi.createSnippet(userId, timestamp, snippet)
         .then((response) => {
           if (response.StatusCode === '200') {
             rtm.sendMessage(response.Message, message.channel);
           } else {
-            if (command === 'feel') {
-              rtm.sendMessage(
-                  'We have your mood today. Reach out to me tomorrow.',
-                  message.channel);
-            } else {
-              rtm.sendMessage(
-                  'We have your mood yesterday.',
-                  message.channel);
-            }
+            console.error('Error while saving snippet', response);
           }
         })
-        .then(() => !snippet || moodApi.createSnippet(userId, timestamp, snippet)
-          .then((response) => {
-            if (response.StatusCode === '200') {
-              rtm.sendMessage(response.Message, message.channel);
-            } else {
-              console.error('Error while saving snippet', response);
-            }
-          })
-        )
       )
-      .catch(err => console.error('Error while performing the "' + command + '" command:', err));
+    )
+    .catch(err => console.error('Error while performing the "feel" command:', err));
+  } else if (message.text.substr(0, 4).toLowerCase() === 'felt') {
+    let timestamp = getTimestampInSeconds(message) - 86400;
+    const [, firstArg, secondArg, ...rest] = message.text.split(' ');
+    const snippet = rest && rest.join(' ');
+
+    let emoji;
+    let value;
+
+    // if the emoji and value are swapped, fixes it for you
+    if (isEmoji(firstArg) && isMoodValue(secondArg)) {
+      emoji = firstArg;
+      value = parseInt(secondArg, 10);
+    } else if (isMoodValue(firstArg) && isEmoji(secondArg)) {
+      value = parseInt(firstArg, 10);
+      emoji = secondArg;
+    } else {
+      rtm.sendMessage('Sorry, I do not understand you. The "felt" command syntax is:\n' +
+          '`felt [emoji] [1-6] ([snippet])`\n' +
+          'For more help, please type `help`', message.channel);
+      return;
+    }
+
+    promiseGetUserId(message.user)
+    .then(userId => moodApi.createMood(userId, timestamp, emoji, value)
+      .then((response) => {
+        if (response.StatusCode === '200') {
+          rtm.sendMessage(response.Message, message.channel);
+        } else {
+          rtm.sendMessage(
+              'We have your mood yesterday.',
+              message.channel);
+        }
+      })
+      .then(() => !snippet || moodApi.createSnippet(userId, timestamp, snippet)
+        .then((response) => {
+          if (response.StatusCode === '200') {
+            rtm.sendMessage(response.Message, message.channel);
+          } else {
+            console.error('Error while saving snippet', response);
+          }
+        })
+      )
+    )
+    .catch(err => console.error('Error while performing the "felt" command:', err));
   } else if (shouldReportErrors) {
     // none of the commands matched
     rtm.sendMessage('Sorry, I do not understand you. Please type `help` for help', message.channel);
