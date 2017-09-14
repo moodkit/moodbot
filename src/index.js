@@ -240,7 +240,8 @@ rtm.on(RTM_EVENTS.MESSAGE, (message) => {
     }
   } else if (message.text.toLowerCase() === 'help') {
     rtm.sendMessage('*command list*\n' +
-        '> feel/felt [emoji] [1-6] ([snippet]) `tell the bot how you feel/felt now, snippet is optional`\n' +
+        '> feel [emoji] [1-6] ([snippet]) `tell the bot how you feel now, snippet is optional`\n' +
+        '> felt [emoji] [1-6] ([snippet]) `tell the bot how you felt yesterday, snippet is optional`\n' +
         '> echo `get the average mood from the past week` \n' +
         '> history `get the mood from the past week` \n' +
         '> quotes `get the snippets from the past week` \n' +
